@@ -26,36 +26,42 @@ namespace Toy1
             // Create memory objects that will be used as arguments to
             // kernel.  First create host memory arrays that will be
             // used to store the arguments to the kernel
-            float[] result = new float[ARRAY_SIZE];
+            /*float[] result = new float[ARRAY_SIZE];
             float[] a = new float[ARRAY_SIZE];
             float[] b = new float[ARRAY_SIZE];
             for (int i = 0; i < ARRAY_SIZE; i++)
             {
                 a[i] = (float)i;
                 b[i] = (float)(i * 2);
-            }
+            }*/
 
-            nint[] memObjects = new nint[3];
-            if (!CreateMemObjects(cl, context, memObjects, a, b))
-            {
-                Cleanup(cl, context, commandQueue, program, kernel, memObjects);
-                return;
-            }
+            CLObject A = Ctx.AllocateObject_Input(new float[ARRAY_SIZE]);
+            CLObject B = Ctx.AllocateObject_Input(new float[ARRAY_SIZE] );
+            CLObject Res = Ctx.AllocateObject_Output(ARRAY_SIZE);
+
+            //CL cl;
 
             // Set the kernel arguments (result, a, b)
-            int errNum = cl.SetKernelArg(kernel, 0, (nuint)sizeof(nint), memObjects[0]);
-            errNum |= cl.SetKernelArg(kernel, 1, (nuint)sizeof(nint), memObjects[1]);
-            errNum |= cl.SetKernelArg(kernel, 2, (nuint)sizeof(nint), memObjects[2]);
+            //int errNum = cl.SetKernelArg(kernel, 0, (nuint)sizeof(nint), memObjects[0]);
+            //errNum |= cl.SetKernelArg(kernel, 1, (nuint)sizeof(nint), memObjects[1]);
+            //errNum |= cl.SetKernelArg(kernel, 2, (nuint)sizeof(nint), memObjects[2]);
 
-            if (errNum != (int)ErrorCodes.Success)
+            Krn.SetKernelArg(0, A);
+            Krn.SetKernelArg(1, B);
+            Krn.SetKernelArg(2, B);
+
+            /*if (errNum != (int)ErrorCodes.Success)
             {
                 Console.WriteLine("Error setting kernel arguments.");
                 Cleanup(cl, context, commandQueue, program, kernel, memObjects);
                 return;
-            }
+            }*/
 
             nuint[] globalWorkSize = new nuint[1] { ARRAY_SIZE };
             nuint[] localWorkSize = new nuint[1] { 1 };
+
+            //================================================================================================================
+            // TODO: Refactor rest of program
 
             // Queue the kernel up for execution across the array
             errNum = cl.EnqueueNdrangeKernel(commandQueue, kernel, 1, (nuint*)null, globalWorkSize, localWorkSize, 0, (nint*)null, (nint*)null);
@@ -85,8 +91,6 @@ namespace Toy1
             }
 
             Console.WriteLine("Executed program succesfully.");
-            Cleanup(cl, context, commandQueue, program, kernel, memObjects);
-
             Console.WriteLine("Done!");
             Console.ReadLine();
         }

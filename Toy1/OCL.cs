@@ -10,15 +10,22 @@ namespace Toy1
     unsafe class CLKernel
     {
         public nint kernel;
+        CLContext Ctx;
 
         public CLKernel(CLContext Ctx, CLProgram Prog, string func_name)
         {
+            this.Ctx = Ctx;
             kernel = Ctx.cL.CreateKernel(Prog.program, func_name, null);
 
             if (kernel == IntPtr.Zero)
             {
                 throw new Exception("Failed to create kernel");
             }
+        }
+
+        public void SetKernelArg(int ArgNum, CLObject Obj)
+        {
+            Ctx.cL.SetKernelArg(kernel, (uint)ArgNum, (nuint)sizeof(nint), ref Obj.obj);
         }
     }
 
@@ -103,6 +110,32 @@ namespace Toy1
         }
     }
 
+    unsafe class CLObject
+    {
+        public nint obj;
+
+        public CLObject(CLContext Ctx, MemFlags Flags, float[] Arr)
+        {
+            fixed (void* ArrPtr = Arr)
+            {
+                obj = Ctx.cL.CreateBuffer(Ctx.context, Flags, (nuint)(sizeof(float) * Arr.Length), ArrPtr, null);
+                ErrCheck();
+            }
+        }
+
+        public CLObject(CLContext Ctx, MemFlags Flags, int Len)
+        {
+            obj = Ctx.cL.CreateBuffer(Ctx.context, Flags, (nuint)(sizeof(float) * Len), null, null);
+            ErrCheck();
+        }
+
+        void ErrCheck()
+        {
+            if (obj == IntPtr.Zero)
+                throw new Exception("Error creating memory objects.");
+        }
+    }
+
     unsafe class CLContext
     {
         public CL cL;
@@ -143,33 +176,19 @@ namespace Toy1
             }
         }
 
-        public void AllocateObject()
+        public void Exec(CLCommandQueue CLQueue, CLKernel Krn, int WorkDim, nuint[] GlobalWorkSize, nuint[] LocalWorkSize)
         {
-
+            cL.EnqueueNdrangeKernel(CLQueue.commandQueue, Krn.kernel, (uint)WorkDim, (nuint*)null, GlobalWorkSize, LocalWorkSize, 0, (nint*)null, (nint*)null);
         }
 
-        static unsafe bool CreateMemObjects(CL cl, nint context, nint[] memObjects, float[] a, float[] b)
+        public CLObject AllocateObject_Input(float[] Arr)
         {
-            fixed (void* pa = a)
-            {
-                memObjects[0] = cl.CreateBuffer(context, MemFlags.ReadOnly | MemFlags.CopyHostPtr, sizeof(float) * ARRAY_SIZE, pa, null);
-            }
-
-            fixed (void* pb = b)
-            {
-                memObjects[1] = cl.CreateBuffer(context, MemFlags.ReadOnly | MemFlags.CopyHostPtr, sizeof(float) * ARRAY_SIZE, pb, null);
-            }
-
-            memObjects[2] = cl.CreateBuffer(context, MemFlags.ReadWrite, sizeof(float) * ARRAY_SIZE, null, null);
-
-            if (memObjects[0] == IntPtr.Zero || memObjects[1] == IntPtr.Zero || memObjects[2] == IntPtr.Zero)
-            {
-                Console.WriteLine("Error creating memory objects.");
-                return false;
-            }
-
-            return true;
+            return new CLObject(this, MemFlags.ReadOnly | MemFlags.CopyHostPtr, Arr);
         }
 
+        public CLObject AllocateObject_Output(int Len)
+        {
+            return new CLObject(this, MemFlags.ReadWrite, Len);
+        }
     }
 }
